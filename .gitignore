@@ -1,0 +1,12 @@
+.venv/
+.tools/
+__pycache__/
+*.py[cod]
+core
+core.*
+
+userdata/settings.json
+userdata/settings.json.tmp
+userdata/custom-role.png
+userdata/roles/*
+!userdata/roles/legacy.png

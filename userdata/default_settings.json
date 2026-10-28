@@ -1,0 +1,10 @@
+{
+  "role_name": "kimi",
+  "active_role": "legacy",
+  "roles": [
+    {
+      "id": "legacy",
+      "name": "kimi"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+PySide6-Essentials>=6.4.3,<6.5; platform_system == "Linux"
+PySide6-Essentials>=6.7,<7; platform_system == "Windows"
