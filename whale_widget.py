@@ -391,17 +391,17 @@ class WhalePet(QWidget):
                 role_id = entry.get("id")
                 if not isinstance(role_id, str) or not role_id.isalnum() or len(role_id) > 64:
                     continue
-                image = QImage(str(roles_directory / f"{role_id}.png"))
-                if image.isNull():
+                reader = QImageReader(str(roles_directory / f"{role_id}.png"))
+                if not reader.size().isValid():
                     continue
                 name = " ".join(str(entry.get("name", "自定义图片")).split())[:20] or "自定义图片"
-                self.roles[role_id] = {"name": name, "image": image}
+                self.roles[role_id] = {"name": name}
         legacy_path = config_dir() / "custom-role.png"
         if not self.roles and legacy_path.is_file():
             image = QImage(str(legacy_path))
             if not image.isNull():
                 name = " ".join(str(self.settings.get("role_name", "自定义图片")).split())[:20] or "自定义图片"
-                self.roles["legacy"] = {"name": name, "image": image}
+                self.roles["legacy"] = {"name": name}
                 try:
                     roles_directory.mkdir(parents=True, exist_ok=True)
                     image.save(str(roles_directory / "legacy.png"), "PNG")
@@ -409,7 +409,7 @@ class WhalePet(QWidget):
                     pass
         requested_role = self.settings.get("active_role")
         self.active_role = requested_role if requested_role in self.roles else next(iter(self.roles), None)
-        self.custom_image = self.roles[self.active_role]["image"] if self.active_role else None
+        self.custom_image = None
         self.custom_pixmap = None
         self.role_name = self.roles[self.active_role]["name"] if self.active_role else "自定义图片"
         self.role_mode = "custom" if self.active_role else "none"
@@ -576,15 +576,19 @@ class WhalePet(QWidget):
         height = image.height() * scale
         return QRectF(160 - width / 2, 280 - height, width, height)
 
-    def _refresh_custom_pixmap(self) -> None:
-        if self.custom_image is None:
-            self.custom_pixmap = None
+    def _refresh_custom_pixmap(self, source_image: QImage | None = None) -> None:
+        self.custom_image = None
+        self.custom_pixmap = None
+        if self.active_role is None:
             return
+        image = source_image if source_image is not None else QImage(str(config_dir() / "roles" / f"{self.active_role}.png"))
+        if image.isNull():
+            return
+        self.custom_image = image
         area = self._custom_rect()
         ratio = self.scale_factor * self.devicePixelRatioF()
         target_width = max(1, round(area.width() * ratio))
         target_height = max(1, round(area.height() * ratio))
-        image = self.custom_image
         while image.width() > target_width * 2 or image.height() > target_height * 2:
             image = image.scaled(
                 max(target_width, image.width() // 2),
@@ -598,6 +602,7 @@ class WhalePet(QWidget):
             Qt.AspectRatioMode.IgnoreAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
+        self.custom_image = image
         self.custom_pixmap = QPixmap.fromImage(image)
         self.custom_pixmap.setDevicePixelRatio(ratio)
 
@@ -1048,10 +1053,9 @@ class WhalePet(QWidget):
         except OSError as exc:
             return f"图片保存失败：{exc}"
         name = " ".join(Path(path).stem.split())[:20] or "自定义图片"
-        self.roles[role_id] = {"name": name, "image": image}
+        self.roles[role_id] = {"name": name}
         self.active_role = role_id
-        self.custom_image = image
-        self._refresh_custom_pixmap()
+        self._refresh_custom_pixmap(image)
         if self.custom_pixmap.isNull():
             return "图片保存后无法加载，请换一张图片重试。"
         self.role_mode = "custom"
@@ -1072,7 +1076,6 @@ class WhalePet(QWidget):
             return f"无法删除已导入的图片：{exc}"
         del self.roles[role_id]
         self.active_role = next(iter(self.roles))
-        self.custom_image = self.roles[self.active_role]["image"]
         self.role_name = self.roles[self.active_role]["name"]
         self.role_mode = "custom"
         self.pressing = False
@@ -1090,7 +1093,6 @@ class WhalePet(QWidget):
         if role_id not in self.roles or role_id == self.active_role:
             return
         self.active_role = role_id
-        self.custom_image = self.roles[role_id]["image"]
         self.role_name = self.roles[role_id]["name"]
         self.role_mode = "custom"
         self.pressing = False
